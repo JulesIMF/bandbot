@@ -204,6 +204,82 @@ func (pg *Postgres) SearchSongs(ctx context.Context, chatID int64, query string,
 	return songs, nil
 }
 
+func (pg *Postgres) SearchSongsInChats(ctx context.Context, chatIDs []int64, query string, limit int) ([]model.Song, error) {
+	if len(chatIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := pg.pool.Query(ctx,
+		`SELECT id, chat_id, name, tempo, key, responsible, last_accessed_at, created_at
+		 FROM songs WHERE chat_id = ANY($1) AND lower(name) LIKE '%' || lower($2) || '%'
+		 ORDER BY last_accessed_at DESC LIMIT $3`,
+		chatIDs, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var songs []model.Song
+	for rows.Next() {
+		var s model.Song
+		if err := rows.Scan(&s.ID, &s.ChatID, &s.Name, &s.Tempo, &s.Key,
+			&s.Responsible, &s.LastAccessedAt, &s.CreatedAt); err != nil {
+			return nil, err
+		}
+		songs = append(songs, s)
+	}
+	return songs, nil
+}
+
+func (pg *Postgres) ListSongsInChats(ctx context.Context, chatIDs []int64) ([]model.Song, error) {
+	if len(chatIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := pg.pool.Query(ctx,
+		`SELECT id, chat_id, name, tempo, key, responsible, last_accessed_at, created_at
+		 FROM songs WHERE chat_id = ANY($1) ORDER BY name`,
+		chatIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var songs []model.Song
+	for rows.Next() {
+		var s model.Song
+		if err := rows.Scan(&s.ID, &s.ChatID, &s.Name, &s.Tempo, &s.Key,
+			&s.Responsible, &s.LastAccessedAt, &s.CreatedAt); err != nil {
+			return nil, err
+		}
+		songs = append(songs, s)
+	}
+	return songs, nil
+}
+
+func (pg *Postgres) GetSongByNameInChats(ctx context.Context, chatIDs []int64, name string) ([]model.Song, error) {
+	if len(chatIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := pg.pool.Query(ctx,
+		`SELECT id, chat_id, name, tempo, key, responsible, last_accessed_at, created_at
+		 FROM songs WHERE chat_id = ANY($1) AND name = $2`,
+		chatIDs, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var songs []model.Song
+	for rows.Next() {
+		var s model.Song
+		if err := rows.Scan(&s.ID, &s.ChatID, &s.Name, &s.Tempo, &s.Key,
+			&s.Responsible, &s.LastAccessedAt, &s.CreatedAt); err != nil {
+			return nil, err
+		}
+		songs = append(songs, s)
+	}
+	return songs, nil
+}
+
 func (pg *Postgres) AddNote(ctx context.Context, note *model.SongNote) error {
 	return pg.pool.QueryRow(ctx,
 		`INSERT INTO song_notes (song_id, content, created_by)

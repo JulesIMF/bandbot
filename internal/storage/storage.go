@@ -7,7 +7,9 @@ import (
 )
 
 type Storage interface {
-	EnsureChat(ctx context.Context, chatID int64) error
+	EnsureChat(ctx context.Context, chatID int64, name string) error
+	ListAllChatIDs(ctx context.Context) ([]int64, error)
+	GetChatName(ctx context.Context, chatID int64) (*string, error)
 
 	// Songs
 	CreateSong(ctx context.Context, song *model.Song) error
@@ -19,6 +21,10 @@ type Storage interface {
 	ListSongs(ctx context.Context, chatID int64) ([]model.Song, error)
 	ListSongNames(ctx context.Context, chatID int64) ([]string, error)
 	SearchSongs(ctx context.Context, chatID int64, query string, limit int) ([]model.Song, error)
+	SearchSongsInChats(ctx context.Context, chatIDs []int64, query string, limit int) ([]model.Song, error)
+	ListSongsInChats(ctx context.Context, chatIDs []int64) ([]model.Song, error)
+	ListSetlistsInChats(ctx context.Context, chatIDs []int64) ([]model.Setlist, error)
+	GetSongByNameInChats(ctx context.Context, chatIDs []int64, name string) ([]model.Song, error)
 
 	// Notes
 	AddNote(ctx context.Context, note *model.SongNote) error
@@ -48,8 +54,10 @@ type Storage interface {
 	// Setlists
 	CreateSetlist(ctx context.Context, setlist *model.Setlist, songIDs []int) error
 	GetSetlist(ctx context.Context, chatID int64, name string) (*model.Setlist, error)
+	GetSetlistByNameInChats(ctx context.Context, chatIDs []int64, name string) ([]model.Setlist, error)
 	GetSetlistByID(ctx context.Context, id int) (*model.Setlist, error)
 	GetActiveSetlist(ctx context.Context, chatID int64) (*model.Setlist, error)
+	GetActiveSetlistsInChats(ctx context.Context, chatIDs []int64) ([]model.Setlist, error)
 	SetActiveSetlist(ctx context.Context, chatID int64, setlistID int) error
 	UpdateSetlistName(ctx context.Context, id int, name string) error
 	UpdateSetlistSongs(ctx context.Context, setlistID int, songIDs []int) error

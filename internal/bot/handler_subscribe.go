@@ -7,6 +7,9 @@ import (
 )
 
 func (b *Bot) handleToggleSubscribeAll(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Send("Эта команда работает только в групповом чате.")
+	}
 	if err := b.ensureChat(c); err != nil {
 		return c.Send("Ошибка: " + err.Error())
 	}

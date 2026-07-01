@@ -13,10 +13,11 @@ import (
 )
 
 type Bot struct {
-	tele    *tele.Bot
-	store   storage.Storage
-	auth    auth.Authorizer
-	prompts *PromptStore
+	tele       *tele.Bot
+	store      storage.Storage
+	auth       auth.Authorizer
+	prompts    *PromptStore
+	membership *MembershipCache
 }
 
 func New(token string, store storage.Storage) (*Bot, error) {
@@ -32,10 +33,11 @@ func New(token string, store storage.Storage) (*Bot, error) {
 	}
 
 	b := &Bot{
-		tele:    tb,
-		store:   store,
-		auth:    auth.AllowAll{},
-		prompts: NewPromptStore(),
+		tele:       tb,
+		store:      store,
+		auth:       auth.AllowAll{},
+		prompts:    NewPromptStore(),
+		membership: NewMembershipCache(tb),
 	}
 
 	b.registerHandlers()
@@ -91,7 +93,22 @@ func (b *Bot) registerHandlers() {
 }
 
 func (b *Bot) ensureChat(c tele.Context) error {
-	return b.store.EnsureChat(context.Background(), c.Chat().ID)
+	return b.store.EnsureChat(context.Background(), c.Chat().ID, c.Chat().Title)
+}
+
+func isPrivateChat(c tele.Context) bool {
+	return c.Chat().Type == tele.ChatPrivate
+}
+
+const privateChatEditError = "Доступно только в групповом чате"
+
+func (b *Bot) getUserChatIDs(userID int64) []int64 {
+	ctx := context.Background()
+	allIDs, err := b.store.ListAllChatIDs(ctx)
+	if err != nil {
+		return nil
+	}
+	return b.membership.GetUserChats(userID, allIDs)
 }
 
 func senderUsername(c tele.Context) string {
@@ -122,9 +139,15 @@ func (b *Bot) handleText(c tele.Context) error {
 	text := c.Text()
 
 	if strings.HasPrefix(strings.ToLower(text), "#примечание") {
+		if isPrivateChat(c) {
+			return c.Send(privateChatEditError)
+		}
 		return b.handleNote(c)
 	}
 	if strings.HasPrefix(strings.ToLower(text), "#закреп") {
+		if isPrivateChat(c) {
+			return c.Send(privateChatEditError)
+		}
 		return b.handlePin(c)
 	}
 

@@ -57,6 +57,33 @@ func (pg *Postgres) GetSetlist(ctx context.Context, chatID int64, name string) (
 	return pg.loadSetlistSongs(ctx, sl)
 }
 
+func (pg *Postgres) GetSetlistByNameInChats(ctx context.Context, chatIDs []int64, name string) ([]model.Setlist, error) {
+	if len(chatIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := pg.pool.Query(ctx,
+		`SELECT id, chat_id, name, created_at FROM setlists WHERE chat_id = ANY($1) AND name = $2`,
+		chatIDs, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var setlists []model.Setlist
+	for rows.Next() {
+		var sl model.Setlist
+		if err := rows.Scan(&sl.ID, &sl.ChatID, &sl.Name, &sl.CreatedAt); err != nil {
+			return nil, err
+		}
+		loaded, err := pg.loadSetlistSongs(ctx, &sl)
+		if err != nil {
+			return nil, err
+		}
+		setlists = append(setlists, *loaded)
+	}
+	return setlists, nil
+}
+
 func (pg *Postgres) GetSetlistByID(ctx context.Context, id int) (*model.Setlist, error) {
 	sl := &model.Setlist{}
 	err := pg.pool.QueryRow(ctx,
@@ -83,6 +110,35 @@ func (pg *Postgres) GetActiveSetlist(ctx context.Context, chatID int64) (*model.
 		return nil, err
 	}
 	return pg.GetSetlistByID(ctx, *setlistID)
+}
+
+func (pg *Postgres) GetActiveSetlistsInChats(ctx context.Context, chatIDs []int64) ([]model.Setlist, error) {
+	if len(chatIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := pg.pool.Query(ctx,
+		`SELECT s.id, s.chat_id, s.name, s.created_at
+		 FROM setlists s
+		 JOIN chats c ON c.active_setlist_id = s.id
+		 WHERE c.id = ANY($1)`, chatIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var setlists []model.Setlist
+	for rows.Next() {
+		var sl model.Setlist
+		if err := rows.Scan(&sl.ID, &sl.ChatID, &sl.Name, &sl.CreatedAt); err != nil {
+			return nil, err
+		}
+		loaded, err := pg.loadSetlistSongs(ctx, &sl)
+		if err != nil {
+			return nil, err
+		}
+		setlists = append(setlists, *loaded)
+	}
+	return setlists, nil
 }
 
 func (pg *Postgres) SetActiveSetlist(ctx context.Context, chatID int64, setlistID int) error {
@@ -136,6 +192,29 @@ func (pg *Postgres) ListSetlists(ctx context.Context, chatID int64) ([]model.Set
 	rows, err := pg.pool.Query(ctx,
 		`SELECT id, chat_id, name, created_at FROM setlists WHERE chat_id = $1 ORDER BY name`,
 		chatID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var setlists []model.Setlist
+	for rows.Next() {
+		var sl model.Setlist
+		if err := rows.Scan(&sl.ID, &sl.ChatID, &sl.Name, &sl.CreatedAt); err != nil {
+			return nil, err
+		}
+		setlists = append(setlists, sl)
+	}
+	return setlists, nil
+}
+
+func (pg *Postgres) ListSetlistsInChats(ctx context.Context, chatIDs []int64) ([]model.Setlist, error) {
+	if len(chatIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := pg.pool.Query(ctx,
+		`SELECT id, chat_id, name, created_at FROM setlists WHERE chat_id = ANY($1) ORDER BY name`,
+		chatIDs)
 	if err != nil {
 		return nil, err
 	}

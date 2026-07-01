@@ -17,6 +17,10 @@ var tempoRe = regexp.MustCompile(`(?i)(\d{2,3})\s*(?:bpm)?`)
 var keyRe = regexp.MustCompile(`(?i)([A-Ga-g][#♭b]?m?)`)
 
 func (b *Bot) handleSong(c tele.Context) error {
+	if isPrivateChat(c) {
+		return b.handleSongPrivate(c)
+	}
+
 	if err := b.ensureChat(c); err != nil {
 		return c.Send("Ошибка: " + err.Error())
 	}
@@ -151,6 +155,111 @@ func (b *Bot) handleSong(c tele.Context) error {
 	return b.sendSongCard(c, song, nil)
 }
 
+func (b *Bot) handleSongPrivate(c tele.Context) error {
+	payload := strings.TrimSpace(extractCommandPayload(c.Text()))
+	if payload == "" {
+		return b.showRecentSongsPrivate(c)
+	}
+
+	var name, optsStr string
+	if idx := strings.Index(payload, ":"); idx != -1 {
+		name = strings.TrimSpace(payload[:idx])
+		optsStr = strings.TrimSpace(payload[idx+1:])
+	} else {
+		name = payload
+	}
+
+	if strings.TrimSpace(optsStr) != "" {
+		return c.Send("Изменение песен доступно только в групповом чате.")
+	}
+
+	name = normalize.SongName(name)
+	if name == "" {
+		return c.Send("Укажите название песни.")
+	}
+
+	chatIDs := b.getUserChatIDs(c.Sender().ID)
+	if len(chatIDs) == 0 {
+		return c.Send("Вы не состоите ни в одной группе с этим ботом.")
+	}
+
+	ctx := context.Background()
+	songs, err := b.store.GetSongByNameInChats(ctx, chatIDs, name)
+	if err != nil {
+		return c.Send("Ошибка: " + err.Error())
+	}
+
+	if len(songs) == 0 {
+		return c.Send(fmt.Sprintf("Песня «%s» не найдена.", name))
+	}
+
+	if len(songs) == 1 {
+		song, err := b.store.GetSongByID(ctx, songs[0].ID)
+		if err != nil || song == nil {
+			return c.Send("Ошибка загрузки песни.")
+		}
+		return b.sendSongCardReadonly(c, song)
+	}
+
+	rm := &tele.ReplyMarkup{}
+	var rows []tele.Row
+	for _, s := range songs {
+		chatName := ""
+		if n, _ := b.store.GetChatName(ctx, s.ChatID); n != nil {
+			chatName = *n
+		}
+		label := s.Name
+		if chatName != "" {
+			label = fmt.Sprintf("%s (%s)", s.Name, chatName)
+		}
+		rows = append(rows, tele.Row{
+			rm.Data(label, "show_song", fmt.Sprintf("%d", s.ID)),
+		})
+	}
+	rm.Inline(rows...)
+	return c.Send(fmt.Sprintf("Песня «%s» найдена в нескольких группах. Выберите:", name), rm)
+}
+
+func (b *Bot) showRecentSongsPrivate(c tele.Context) error {
+	chatIDs := b.getUserChatIDs(c.Sender().ID)
+	if len(chatIDs) == 0 {
+		return c.Send("Вы не состоите ни в одной группе с этим ботом.")
+	}
+
+	ctx := context.Background()
+	songs, err := b.store.SearchSongsInChats(ctx, chatIDs, "", 20)
+	if err != nil {
+		return c.Send("Ошибка: " + err.Error())
+	}
+	if len(songs) == 0 {
+		return c.Send("Песен пока нет.")
+	}
+
+	text := "🎵 Недавние песни:\n\n" + RenderSongList(songs)
+
+	rm := &tele.ReplyMarkup{}
+	var rows []tele.Row
+	for _, s := range songs {
+		rows = append(rows, tele.Row{
+			rm.Data(s.Name, "show_song", fmt.Sprintf("%d", s.ID)),
+		})
+	}
+	rm.Inline(rows...)
+	return c.Send(text, rm)
+}
+
+func (b *Bot) sendSongCardReadonly(c tele.Context, song *model.Song) error {
+	ctx := context.Background()
+	chatName := ""
+	if n, _ := b.store.GetChatName(ctx, song.ChatID); n != nil {
+		chatName = *n
+	}
+	text := RenderSongCardWithChat(song, nil, nil, chatName)
+	isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)
+	kb := SongCardKeyboardReadonly(song, isSubbed)
+	return c.Send(text, kb, tele.ModeHTML)
+}
+
 func (b *Bot) showRecentSongs(c tele.Context) error {
 	ctx := context.Background()
 	songs, err := b.store.SearchSongs(ctx, c.Chat().ID, "", 20)
@@ -190,10 +299,6 @@ func (b *Bot) sendSongCard(c tele.Context, song *model.Song, changes *ChangeHead
 }
 
 func (b *Bot) handleShowSongCallback(c tele.Context) error {
-	if err := b.ensureChat(c); err != nil {
-		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
-	}
-
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Некорректный ID"})
@@ -207,6 +312,14 @@ func (b *Bot) handleShowSongCallback(c tele.Context) error {
 
 	_ = b.store.TouchSong(ctx, song.ID)
 	_ = c.Respond()
+
+	if isPrivateChat(c) {
+		return b.sendSongCardReadonly(c, song)
+	}
+
+	if err := b.ensureChat(c); err != nil {
+		return c.Send("Ошибка: " + err.Error())
+	}
 
 	text := RenderSongCard(song, nil, nil)
 	isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)

@@ -27,6 +27,10 @@ func extractCommandPayload(text string) string {
 }
 
 func (b *Bot) handleSetlist(c tele.Context) error {
+	if isPrivateChat(c) {
+		return b.handleSetlistPrivate(c)
+	}
+
 	if err := b.ensureChat(c); err != nil {
 		return c.Send("Ошибка: " + err.Error())
 	}
@@ -60,7 +64,6 @@ func (b *Bot) handleSetlist(c tele.Context) error {
 		if sl != nil {
 			return b.sendSetlistCard(c, sl)
 		}
-		// Setlist not found — send a prompt for song list
 		msg, err := b.tele.Send(c.Chat(),
 			fmt.Sprintf("Создаём сетлист «%s». Ответьте на это сообщение списком песен (по одной на строку).", name))
 		if err != nil {
@@ -71,6 +74,86 @@ func (b *Bot) handleSetlist(c tele.Context) error {
 	}
 
 	return b.resolveAndCreateSetlist(c, name, songLines)
+}
+
+func (b *Bot) handleSetlistPrivate(c tele.Context) error {
+	text := extractCommandPayload(c.Text())
+	if strings.TrimSpace(text) == "" {
+		return b.showActiveSetlistsPrivate(c)
+	}
+
+	lines := strings.Split(text, "\n")
+	name := normalize.SongName(strings.TrimSpace(lines[0]))
+	if name == "" {
+		return c.Send("Укажите название сетлиста.")
+	}
+
+	for _, l := range lines[1:] {
+		if strings.TrimSpace(l) != "" {
+			return c.Send("Создание и изменение сетлистов доступно только в групповом чате.")
+		}
+	}
+
+	chatIDs := b.getUserChatIDs(c.Sender().ID)
+	if len(chatIDs) == 0 {
+		return c.Send("Вы не состоите ни в одной группе с этим ботом.")
+	}
+
+	ctx := context.Background()
+	setlists, err := b.store.GetSetlistByNameInChats(ctx, chatIDs, name)
+	if err != nil {
+		return c.Send("Ошибка: " + err.Error())
+	}
+
+	if len(setlists) == 0 {
+		return c.Send(fmt.Sprintf("Сетлист «%s» не найден.", name))
+	}
+
+	if len(setlists) == 1 {
+		return b.sendSetlistCardReadonly(c, &setlists[0])
+	}
+
+	rm := &tele.ReplyMarkup{}
+	var rows []tele.Row
+	for _, sl := range setlists {
+		chatName := ""
+		if n, _ := b.store.GetChatName(ctx, sl.ChatID); n != nil {
+			chatName = *n
+		}
+		label := sl.Name
+		if chatName != "" {
+			label = fmt.Sprintf("%s (%s)", sl.Name, chatName)
+		}
+		rows = append(rows, tele.Row{
+			rm.Data(label, "show_sl", fmt.Sprintf("%d", sl.ID)),
+		})
+	}
+	rm.Inline(rows...)
+	return c.Send(fmt.Sprintf("Сетлист «%s» найден в нескольких группах. Выберите:", name), rm)
+}
+
+func (b *Bot) showActiveSetlistsPrivate(c tele.Context) error {
+	chatIDs := b.getUserChatIDs(c.Sender().ID)
+	if len(chatIDs) == 0 {
+		return c.Send("Вы не состоите ни в одной группе с этим ботом.")
+	}
+
+	ctx := context.Background()
+	setlists, err := b.store.GetActiveSetlistsInChats(ctx, chatIDs)
+	if err != nil {
+		return c.Send("Ошибка: " + err.Error())
+	}
+
+	if len(setlists) == 0 {
+		return c.Send("Ни в одной группе не установлен активный сетлист.")
+	}
+
+	for i := range setlists {
+		if err := b.sendSetlistCardReadonly(c, &setlists[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (b *Bot) showActiveSetlist(c tele.Context) error {
@@ -87,6 +170,25 @@ func (b *Bot) showActiveSetlist(c tele.Context) error {
 
 func (b *Bot) sendSetlistCard(c tele.Context, sl *model.Setlist) error {
 	return b.sendSetlistCardWithCC(c, sl, nil)
+}
+
+func (b *Bot) sendSetlistCardReadonly(c tele.Context, sl *model.Setlist) error {
+	ctx := context.Background()
+	chatName := ""
+	if n, _ := b.store.GetChatName(ctx, sl.ChatID); n != nil {
+		chatName = *n
+	}
+	text := RenderSetlistCard(sl)
+	if chatName != "" {
+		if isSupergroup(sl.ChatID) {
+			link := chatDeepLink(sl.ChatID)
+			text = fmt.Sprintf("📋 %s 🔗 <a href=\"%s\">%s</a>\n\n", sl.Name, link, escapeHTML(chatName)) + text[len(fmt.Sprintf("📋 %s\n\n", sl.Name)):]
+		} else {
+			text = fmt.Sprintf("📋 %s · %s\n\n", sl.Name, escapeHTML(chatName)) + text[len(fmt.Sprintf("📋 %s\n\n", sl.Name)):]
+		}
+	}
+	kb := SetlistCardKeyboardReadonly(sl)
+	return c.Send(text, kb, tele.ModeHTML)
 }
 
 func (b *Bot) sendSetlistCardWithCC(c tele.Context, sl *model.Setlist, ccList []string) error {
@@ -313,6 +415,9 @@ func (b *Bot) finalizeSetlistFromState(c tele.Context, state *disambigState) err
 }
 
 func (b *Bot) handleRenameSetlistPrompt(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	slID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -335,6 +440,9 @@ func (b *Bot) handleRenameSetlistPrompt(c tele.Context) error {
 }
 
 func (b *Bot) handleEditSetlistPrompt(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	slID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -368,6 +476,9 @@ func (b *Bot) handleEditSetlistPrompt(c tele.Context) error {
 }
 
 func (b *Bot) handleSetActiveSetlist(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	slID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -384,6 +495,9 @@ func (b *Bot) handleSetActiveSetlist(c tele.Context) error {
 }
 
 func (b *Bot) handleDeleteSetlist(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	slID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -424,6 +538,9 @@ func (b *Bot) handleShowSetlistCallback(c tele.Context) error {
 	}
 
 	_ = c.Respond()
+	if isPrivateChat(c) {
+		return b.sendSetlistCardReadonly(c, sl)
+	}
 	return b.sendSetlistCard(c, sl)
 }
 

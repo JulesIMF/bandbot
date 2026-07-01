@@ -36,13 +36,15 @@ func NewPostgres(ctx context.Context, databaseURL string) (*Postgres, error) {
 }
 
 func (pg *Postgres) migrate(ctx context.Context) error {
-	sql, err := migrationsFS.ReadFile("migrations/001_init.sql")
-	if err != nil {
-		return fmt.Errorf("read migration: %w", err)
-	}
-	_, err = pg.pool.Exec(ctx, string(sql))
-	if err != nil {
-		return fmt.Errorf("exec migration: %w", err)
+	files := []string{"migrations/001_init.sql", "migrations/002_chat_name.sql"}
+	for _, f := range files {
+		sql, err := migrationsFS.ReadFile(f)
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", f, err)
+		}
+		if _, err = pg.pool.Exec(ctx, string(sql)); err != nil {
+			return fmt.Errorf("exec migration %s: %w", f, err)
+		}
 	}
 	return nil
 }
@@ -51,8 +53,43 @@ func (pg *Postgres) Close() {
 	pg.pool.Close()
 }
 
-func (pg *Postgres) EnsureChat(ctx context.Context, chatID int64) error {
+func (pg *Postgres) EnsureChat(ctx context.Context, chatID int64, name string) error {
 	_, err := pg.pool.Exec(ctx,
-		`INSERT INTO chats (id) VALUES ($1) ON CONFLICT DO NOTHING`, chatID)
+		`INSERT INTO chats (id, name) VALUES ($1, $2)
+		 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
+		chatID, nilIfEmpty(name))
 	return err
+}
+
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func (pg *Postgres) ListAllChatIDs(ctx context.Context) ([]int64, error) {
+	rows, err := pg.pool.Query(ctx, `SELECT id FROM chats`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func (pg *Postgres) GetChatName(ctx context.Context, chatID int64) (*string, error) {
+	var name *string
+	err := pg.pool.QueryRow(ctx, `SELECT name FROM chats WHERE id = $1`, chatID).Scan(&name)
+	if err != nil {
+		return nil, err
+	}
+	return name, nil
 }

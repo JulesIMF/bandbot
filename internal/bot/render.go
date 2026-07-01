@@ -13,6 +13,14 @@ func isSupergroup(chatID int64) bool {
 	return chatID < -1000000000000
 }
 
+func chatDeepLink(chatID int64) string {
+	s := strconv.FormatInt(chatID, 10)
+	if strings.HasPrefix(s, "-100") {
+		s = s[4:]
+	}
+	return fmt.Sprintf("https://t.me/c/%s", s)
+}
+
 func pinLink(chatID, messageID int64) string {
 	s := strconv.FormatInt(chatID, 10)
 	if strings.HasPrefix(s, "-100") {
@@ -70,6 +78,10 @@ func renderChangeHeader(ch *ChangeHeader) string {
 }
 
 func RenderSongCard(song *model.Song, changes *ChangeHeader, ccList []string) string {
+	return RenderSongCardWithChat(song, changes, ccList, "")
+}
+
+func RenderSongCardWithChat(song *model.Song, changes *ChangeHeader, ccList []string, chatName string) string {
 	var b strings.Builder
 
 	if changes != nil {
@@ -89,7 +101,16 @@ func RenderSongCard(song *model.Song, changes *ChangeHeader, ccList []string) st
 		}
 	}
 
-	b.WriteString(fmt.Sprintf("🎵 %s\n", song.Name))
+	b.WriteString(fmt.Sprintf("🎵 %s", song.Name))
+	if chatName != "" {
+		if isSupergroup(song.ChatID) {
+			chatLink := chatDeepLink(song.ChatID)
+			b.WriteString(fmt.Sprintf(" 🔗 <a href=\"%s\">%s</a>", chatLink, escapeHTML(chatName)))
+		} else {
+			b.WriteString(fmt.Sprintf(" · %s", escapeHTML(chatName)))
+		}
+	}
+	b.WriteString("\n")
 
 	if song.Tempo != nil {
 		b.WriteString(fmt.Sprintf("Темп: %d bpm\n", *song.Tempo))
@@ -166,6 +187,42 @@ func SongCardKeyboard(song *model.Song, isSubscribed bool) *tele.ReplyMarkup {
 		rm.Data("Удалить песню", "delete_song", fmt.Sprintf("%d", song.ID)),
 	})
 
+	rm.Inline(rows...)
+	return rm
+}
+
+func SongCardKeyboardReadonly(song *model.Song, isSubscribed bool) *tele.ReplyMarkup {
+	rm := &tele.ReplyMarkup{}
+
+	subText := "Подписаться"
+	subAction := "sub"
+	if isSubscribed {
+		subText = "Отписаться"
+		subAction = "unsub"
+	}
+
+	rm.Inline(tele.Row{
+		rm.Data(subText, subAction, fmt.Sprintf("%d", song.ID)),
+		rm.Data("История", "history", fmt.Sprintf("%d", song.ID)),
+	})
+	return rm
+}
+
+func SetlistCardKeyboardReadonly(sl *model.Setlist) *tele.ReplyMarkup {
+	rm := &tele.ReplyMarkup{}
+	var rows []tele.Row
+	for _, e := range sl.Songs {
+		if e.Song == nil {
+			continue
+		}
+		rows = append(rows, tele.Row{
+			rm.Data(
+				fmt.Sprintf("%d. %s", e.Position, e.Song.Name),
+				"show_song",
+				fmt.Sprintf("%d", e.Song.ID),
+			),
+		})
+	}
 	rm.Inline(rows...)
 	return rm
 }

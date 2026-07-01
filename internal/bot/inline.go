@@ -14,18 +14,12 @@ func (b *Bot) handleInlineQuery(c tele.Context) error {
 
 	ctx := context.Background()
 
-	// Inline queries don't have a chat context, so we search across all chats
-	// that the sender has interacted with. For simplicity, we'll use the query
-	// to search songs globally for this bot instance.
-	// A better approach would be to cache user->chat mappings, but for a band bot
-	// used in a few chats this is acceptable.
+	chatIDs := b.getUserChatIDs(c.Query().Sender.ID)
 	var songs []model.Song
 	var err error
 
-	if query == "" {
-		songs, err = b.store.SearchSongs(ctx, 0, "", 20)
-	} else {
-		songs, err = b.store.SearchSongs(ctx, 0, query, 20)
+	if len(chatIDs) > 0 {
+		songs, err = b.store.SearchSongsInChats(ctx, chatIDs, query, 20)
 	}
 
 	if err != nil {

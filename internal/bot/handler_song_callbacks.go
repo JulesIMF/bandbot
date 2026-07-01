@@ -14,6 +14,9 @@ import (
 )
 
 func (b *Bot) handleKeySelect(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -38,6 +41,9 @@ func (b *Bot) handleKeySelect(c tele.Context) error {
 }
 
 func (b *Bot) handleSetKey(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	parts := strings.SplitN(c.Callback().Data, "|", 2)
 	if len(parts) != 2 {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -106,6 +112,9 @@ func (b *Bot) handleKeyBack(c tele.Context) error {
 }
 
 func (b *Bot) handleTempoPrompt(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -133,6 +142,9 @@ func (b *Bot) handleTempoPrompt(c tele.Context) error {
 }
 
 func (b *Bot) handleRenameSongPrompt(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -155,6 +167,9 @@ func (b *Bot) handleRenameSongPrompt(c tele.Context) error {
 }
 
 func (b *Bot) handleResponsiblePrompt(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -409,6 +424,9 @@ func (b *Bot) handleHistory(c tele.Context) error {
 }
 
 func (b *Bot) handleDeleteSong(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -439,6 +457,9 @@ func (b *Bot) handleDeleteSong(c tele.Context) error {
 }
 
 func (b *Bot) handleDeleteNoteSelect(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -471,6 +492,9 @@ func (b *Bot) handleDeleteNoteSelect(c tele.Context) error {
 }
 
 func (b *Bot) handleRemoveNote(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	parts := strings.SplitN(c.Callback().Data, "|", 2)
 	if len(parts) != 2 {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -504,6 +528,9 @@ func (b *Bot) handleRemoveNote(c tele.Context) error {
 }
 
 func (b *Bot) handleClearNotes(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -534,6 +561,9 @@ func (b *Bot) handleClearNotes(c tele.Context) error {
 }
 
 func (b *Bot) handleDeletePinSelect(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -562,6 +592,9 @@ func (b *Bot) handleDeletePinSelect(c tele.Context) error {
 }
 
 func (b *Bot) handleRemovePin(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	parts := strings.SplitN(c.Callback().Data, "|", 2)
 	if len(parts) != 2 {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
@@ -595,6 +628,9 @@ func (b *Bot) handleRemovePin(c tele.Context) error {
 }
 
 func (b *Bot) handleClearPins(c tele.Context) error {
+	if isPrivateChat(c) {
+		return c.Respond(&tele.CallbackResponse{Text: privateChatEditError})
+	}
 	songID, err := strconv.Atoi(c.Callback().Data)
 	if err != nil {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
