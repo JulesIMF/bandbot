@@ -516,7 +516,9 @@ func (b *Bot) handleDeleteSetlist(c tele.Context) error {
 	remaining := pressDelete(c.Chat().ID, c.Message().ID)
 	if remaining > 0 {
 		text := RenderSetlistCard(sl)
-		kb := SetlistCardKeyboard(sl, KeyboardOpts{DeleteRemaining: &remaining})
+		opts := msgOriginOpts(c)
+		opts.DeleteRemaining = &remaining
+		kb := SetlistCardKeyboard(sl, opts)
 		_ = c.Respond()
 		return c.Edit(text, kb, tele.ModeHTML)
 	}
@@ -557,6 +559,8 @@ func (b *Bot) handleShowSetlistCallback(c tele.Context) error {
 	}
 
 	_ = c.Respond()
+	setScreenOrigin(c.Chat().ID, c.Message().ID, origin)
+
 	if isPrivateChat(c) {
 		chatName := ""
 		if n, _ := b.store.GetChatName(ctx, sl.ChatID); n != nil {

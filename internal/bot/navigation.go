@@ -5,10 +5,43 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/julesimf/bandbot/internal/model"
 	tele "gopkg.in/telebot.v3"
 )
+
+var screenOriginStore = struct {
+	sync.Mutex
+	m map[string]string
+}{m: make(map[string]string)}
+
+func originKey(chatID int64, msgID int) string {
+	return fmt.Sprintf("%d:%d", chatID, msgID)
+}
+
+func setScreenOrigin(chatID int64, msgID int, origin string) {
+	key := originKey(chatID, msgID)
+	screenOriginStore.Lock()
+	defer screenOriginStore.Unlock()
+	if origin == "" {
+		delete(screenOriginStore.m, key)
+	} else {
+		screenOriginStore.m[key] = origin
+	}
+}
+
+func getScreenOrigin(chatID int64, msgID int) string {
+	key := originKey(chatID, msgID)
+	screenOriginStore.Lock()
+	defer screenOriginStore.Unlock()
+	return screenOriginStore.m[key]
+}
+
+func msgOriginOpts(c tele.Context) KeyboardOpts {
+	origin := getScreenOrigin(c.Chat().ID, c.Message().ID)
+	return KeyboardOpts{BackOrigin: origin}
+}
 
 func (b *Bot) handleNavBack(c tele.Context) error {
 	data := c.Callback().Data
@@ -47,6 +80,8 @@ func (b *Bot) navToSong(c tele.Context, idStr string) error {
 		return nil
 	}
 
+	opts := msgOriginOpts(c)
+
 	if isPrivateChat(c) {
 		chatName := ""
 		if n, _ := b.store.GetChatName(ctx, song.ChatID); n != nil {
@@ -54,13 +89,13 @@ func (b *Bot) navToSong(c tele.Context, idStr string) error {
 		}
 		text := RenderSongCardWithChat(song, nil, nil, chatName)
 		isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)
-		kb := SongCardKeyboardReadonly(song, isSubbed)
+		kb := SongCardKeyboardReadonly(song, isSubbed, opts)
 		return c.Edit(text, kb, tele.ModeHTML)
 	}
 
 	text := RenderSongCard(song, nil, nil)
 	isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)
-	kb := SongCardKeyboard(song, isSubbed)
+	kb := SongCardKeyboard(song, isSubbed, opts)
 	return c.Edit(text, kb, tele.ModeHTML)
 }
 
@@ -76,6 +111,8 @@ func (b *Bot) navToSetlist(c tele.Context, idStr string) error {
 		return nil
 	}
 
+	opts := msgOriginOpts(c)
+
 	if isPrivateChat(c) {
 		chatName := ""
 		if n, _ := b.store.GetChatName(ctx, sl.ChatID); n != nil {
@@ -90,12 +127,12 @@ func (b *Bot) navToSetlist(c tele.Context, idStr string) error {
 				text = fmt.Sprintf("📋 %s · %s\n\n", sl.Name, escapeHTML(chatName)) + text[len(fmt.Sprintf("📋 %s\n\n", sl.Name)):]
 			}
 		}
-		kb := SetlistCardKeyboardReadonly(sl)
+		kb := SetlistCardKeyboardReadonly(sl, opts)
 		return c.Edit(text, kb, tele.ModeHTML)
 	}
 
 	text := RenderSetlistCard(sl)
-	kb := SetlistCardKeyboard(sl)
+	kb := SetlistCardKeyboard(sl, opts)
 	return c.Edit(text, kb, tele.ModeHTML)
 }
 

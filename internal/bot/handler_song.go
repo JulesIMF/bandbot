@@ -308,6 +308,8 @@ func (b *Bot) handleShowSongCallback(c tele.Context) error {
 	_ = b.store.TouchSong(ctx, song.ID)
 	_ = c.Respond()
 
+	setScreenOrigin(c.Chat().ID, c.Message().ID, origin)
+
 	if isPrivateChat(c) {
 		chatName := ""
 		if n, _ := b.store.GetChatName(ctx, song.ChatID); n != nil {
