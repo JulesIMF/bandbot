@@ -86,11 +86,19 @@ func RenderSongCardWithChat(song *model.Song, changes *ChangeHeader, ccList []st
 
 	if changes != nil {
 		header := renderChangeHeader(changes)
-		if header != "" {
-			b.WriteString(header)
-			b.WriteString("\n")
-			if len(ccList) > 0 {
-				b.WriteString("\ncc")
+		hasHeader := header != ""
+		hasCc := len(ccList) > 0
+
+		if hasHeader || hasCc {
+			if hasHeader {
+				b.WriteString(header)
+				b.WriteString("\n")
+			}
+			if hasCc {
+				if hasHeader {
+					b.WriteString("\n")
+				}
+				b.WriteString("cc")
 				for _, u := range ccList {
 					b.WriteString(" @")
 					b.WriteString(u)

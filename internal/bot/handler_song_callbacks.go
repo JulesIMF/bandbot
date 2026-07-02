@@ -213,6 +213,9 @@ func (b *Bot) handlePromptReply(c tele.Context) error {
 
 	b.prompts.Delete(c.Chat().ID, replyTo.ID)
 
+	_ = b.tele.Delete(&tele.Message{ID: replyTo.ID, Chat: c.Chat()})
+	_ = c.Delete()
+
 	switch pctx.Type {
 	case PromptTempo:
 		return b.processTempoReply(c, pctx.TargetID)
@@ -530,7 +533,6 @@ func (b *Bot) handleRemoveNote(c tele.Context) error {
 	}
 
 	ccList, _ := b.store.GetNotifyList(ctx, song)
-	text := RenderSongCard(song, nil, ccList)
 
 	_ = b.store.DeleteNote(ctx, noteID)
 	_ = b.store.AddHistory(ctx, &model.SongHistory{
@@ -540,11 +542,12 @@ func (b *Bot) handleRemoveNote(c tele.Context) error {
 	})
 
 	song, _ = b.store.GetSongByID(ctx, songID)
+	text := RenderSongCard(song, &ChangeHeader{}, ccList)
 	isSubbed, _ := b.store.IsSubscribed(ctx, songID, c.Sender().ID)
 	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
-	return c.Edit(text+"\n✏️ Примечание удалено", kb, tele.ModeHTML)
+	return c.Edit(text, kb, tele.ModeHTML)
 }
 
 func (b *Bot) handleClearNotes(c tele.Context) error {
@@ -563,7 +566,6 @@ func (b *Bot) handleClearNotes(c tele.Context) error {
 	}
 
 	ccList, _ := b.store.GetNotifyList(ctx, song)
-	text := RenderSongCard(song, nil, ccList)
 
 	_ = b.store.ClearNotes(ctx, songID)
 	_ = b.store.AddHistory(ctx, &model.SongHistory{
@@ -573,11 +575,12 @@ func (b *Bot) handleClearNotes(c tele.Context) error {
 	})
 
 	song, _ = b.store.GetSongByID(ctx, songID)
+	text := RenderSongCard(song, &ChangeHeader{}, ccList)
 	isSubbed, _ := b.store.IsSubscribed(ctx, songID, c.Sender().ID)
 	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
-	return c.Edit(text+"\n✏️ Все примечания удалены", kb, tele.ModeHTML)
+	return c.Edit(text, kb, tele.ModeHTML)
 }
 
 func (b *Bot) handleDeletePinSelect(c tele.Context) error {
@@ -631,7 +634,6 @@ func (b *Bot) handleRemovePin(c tele.Context) error {
 	}
 
 	ccList, _ := b.store.GetNotifyList(ctx, song)
-	text := RenderSongCard(song, nil, ccList)
 
 	_ = b.store.DeletePin(ctx, pinID)
 	_ = b.store.AddHistory(ctx, &model.SongHistory{
@@ -641,11 +643,12 @@ func (b *Bot) handleRemovePin(c tele.Context) error {
 	})
 
 	song, _ = b.store.GetSongByID(ctx, songID)
+	text := RenderSongCard(song, &ChangeHeader{}, ccList)
 	isSubbed, _ := b.store.IsSubscribed(ctx, songID, c.Sender().ID)
 	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
-	return c.Edit(text+"\n📎 Закреп удалён", kb, tele.ModeHTML)
+	return c.Edit(text, kb, tele.ModeHTML)
 }
 
 func (b *Bot) handleClearPins(c tele.Context) error {
@@ -664,7 +667,6 @@ func (b *Bot) handleClearPins(c tele.Context) error {
 	}
 
 	ccList, _ := b.store.GetNotifyList(ctx, song)
-	text := RenderSongCard(song, nil, ccList)
 
 	_ = b.store.ClearPins(ctx, songID)
 	_ = b.store.AddHistory(ctx, &model.SongHistory{
@@ -674,9 +676,10 @@ func (b *Bot) handleClearPins(c tele.Context) error {
 	})
 
 	song, _ = b.store.GetSongByID(ctx, songID)
+	text := RenderSongCard(song, &ChangeHeader{}, ccList)
 	isSubbed, _ := b.store.IsSubscribed(ctx, songID, c.Sender().ID)
 	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
-	return c.Edit(text+"\n📎 Все закрепы удалены", kb, tele.ModeHTML)
+	return c.Edit(text, kb, tele.ModeHTML)
 }

@@ -66,5 +66,5 @@ func (b *Bot) handlePin(c tele.Context) error {
 	_ = b.store.TouchSong(ctx, song.ID)
 
 	song, _ = b.store.GetSongByID(ctx, song.ID)
-	return b.sendSongCard(c, song, nil)
+	return b.sendSongCard(c, song, &ChangeHeader{})
 }
