@@ -16,12 +16,12 @@ var screenOriginStore = struct {
 	m map[string]string
 }{m: make(map[string]string)}
 
-func originKey(chatID int64, msgID int) string {
-	return fmt.Sprintf("%d:%d", chatID, msgID)
+func originKey(chatID int64, msgID int, screenType string) string {
+	return fmt.Sprintf("%d:%d:%s", chatID, msgID, screenType)
 }
 
-func setScreenOrigin(chatID int64, msgID int, origin string) {
-	key := originKey(chatID, msgID)
+func setScreenOrigin(chatID int64, msgID int, screenType, origin string) {
+	key := originKey(chatID, msgID, screenType)
 	screenOriginStore.Lock()
 	defer screenOriginStore.Unlock()
 	if origin == "" {
@@ -31,15 +31,20 @@ func setScreenOrigin(chatID int64, msgID int, origin string) {
 	}
 }
 
-func getScreenOrigin(chatID int64, msgID int) string {
-	key := originKey(chatID, msgID)
+func getScreenOrigin(chatID int64, msgID int, screenType string) string {
+	key := originKey(chatID, msgID, screenType)
 	screenOriginStore.Lock()
 	defer screenOriginStore.Unlock()
 	return screenOriginStore.m[key]
 }
 
-func msgOriginOpts(c tele.Context) KeyboardOpts {
-	origin := getScreenOrigin(c.Chat().ID, c.Message().ID)
+func songOriginOpts(c tele.Context) KeyboardOpts {
+	origin := getScreenOrigin(c.Chat().ID, c.Message().ID, "song")
+	return KeyboardOpts{BackOrigin: origin}
+}
+
+func setlistOriginOpts(c tele.Context) KeyboardOpts {
+	origin := getScreenOrigin(c.Chat().ID, c.Message().ID, "setlist")
 	return KeyboardOpts{BackOrigin: origin}
 }
 
@@ -80,7 +85,7 @@ func (b *Bot) navToSong(c tele.Context, idStr string) error {
 		return nil
 	}
 
-	opts := msgOriginOpts(c)
+	opts := songOriginOpts(c)
 
 	if isPrivateChat(c) {
 		chatName := ""
@@ -111,7 +116,7 @@ func (b *Bot) navToSetlist(c tele.Context, idStr string) error {
 		return nil
 	}
 
-	opts := msgOriginOpts(c)
+	opts := setlistOriginOpts(c)
 
 	if isPrivateChat(c) {
 		chatName := ""

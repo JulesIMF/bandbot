@@ -85,7 +85,7 @@ func (b *Bot) handleSetKey(c tele.Context) error {
 	ccList, _ := b.store.GetNotifyList(ctx, song)
 	text := RenderSongCard(song, changes, ccList)
 	isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)
-	kb := SongCardKeyboard(song, isSubbed, msgOriginOpts(c))
+	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
 	return c.Edit(text, kb, tele.ModeHTML)
@@ -105,7 +105,7 @@ func (b *Bot) handleKeyBack(c tele.Context) error {
 
 	text := RenderSongCard(song, nil, nil)
 	isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)
-	kb := SongCardKeyboard(song, isSubbed, msgOriginOpts(c))
+	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
 	return c.Edit(text, kb, tele.ModeHTML)
@@ -379,7 +379,7 @@ func (b *Bot) handleSubscribe(c tele.Context) error {
 	}
 
 	text := RenderSongCard(song, nil, nil)
-	kb := SongCardKeyboard(song, true, msgOriginOpts(c))
+	kb := SongCardKeyboard(song, true, songOriginOpts(c))
 	_ = c.Respond(&tele.CallbackResponse{Text: "Вы подписались на изменения"})
 	return c.Edit(text, kb, tele.ModeHTML)
 }
@@ -399,7 +399,7 @@ func (b *Bot) handleUnsubscribe(c tele.Context) error {
 	}
 
 	text := RenderSongCard(song, nil, nil)
-	kb := SongCardKeyboard(song, false, msgOriginOpts(c))
+	kb := SongCardKeyboard(song, false, songOriginOpts(c))
 	_ = c.Respond(&tele.CallbackResponse{Text: "Вы отписались от изменений"})
 	return c.Edit(text, kb, tele.ModeHTML)
 }
@@ -451,7 +451,7 @@ func (b *Bot) handleDeleteSong(c tele.Context) error {
 	if remaining > 0 {
 		text := RenderSongCard(song, nil, nil)
 		isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)
-		opts := msgOriginOpts(c)
+		opts := songOriginOpts(c)
 		opts.DeleteRemaining = &remaining
 		kb := SongCardKeyboard(song, isSubbed, opts)
 		_ = c.Respond()
@@ -538,7 +538,7 @@ func (b *Bot) handleRemoveNote(c tele.Context) error {
 
 	song, _ = b.store.GetSongByID(ctx, songID)
 	isSubbed, _ := b.store.IsSubscribed(ctx, songID, c.Sender().ID)
-	kb := SongCardKeyboard(song, isSubbed, msgOriginOpts(c))
+	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
 	return c.Edit(text+"\n✏️ Примечание удалено", kb, tele.ModeHTML)
@@ -571,7 +571,7 @@ func (b *Bot) handleClearNotes(c tele.Context) error {
 
 	song, _ = b.store.GetSongByID(ctx, songID)
 	isSubbed, _ := b.store.IsSubscribed(ctx, songID, c.Sender().ID)
-	kb := SongCardKeyboard(song, isSubbed, msgOriginOpts(c))
+	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
 	return c.Edit(text+"\n✏️ Все примечания удалены", kb, tele.ModeHTML)
@@ -638,7 +638,7 @@ func (b *Bot) handleRemovePin(c tele.Context) error {
 
 	song, _ = b.store.GetSongByID(ctx, songID)
 	isSubbed, _ := b.store.IsSubscribed(ctx, songID, c.Sender().ID)
-	kb := SongCardKeyboard(song, isSubbed, msgOriginOpts(c))
+	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
 	return c.Edit(text+"\n📎 Закреп удалён", kb, tele.ModeHTML)
@@ -671,7 +671,7 @@ func (b *Bot) handleClearPins(c tele.Context) error {
 
 	song, _ = b.store.GetSongByID(ctx, songID)
 	isSubbed, _ := b.store.IsSubscribed(ctx, songID, c.Sender().ID)
-	kb := SongCardKeyboard(song, isSubbed, msgOriginOpts(c))
+	kb := SongCardKeyboard(song, isSubbed, songOriginOpts(c))
 
 	_ = c.Respond()
 	return c.Edit(text+"\n📎 Все закрепы удалены", kb, tele.ModeHTML)
