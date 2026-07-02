@@ -28,15 +28,8 @@ func (b *Bot) handleAllSongs(c tele.Context) error {
 	}
 
 	text := "🎵 Все песни:\n\n" + RenderSongList(songs)
-
-	rm := &tele.ReplyMarkup{}
-	var rows []tele.Row
-	for _, s := range songs {
-		rows = append(rows, tele.Row{
-			rm.Data(s.Name, "show_song", fmt.Sprintf("%d", s.ID)),
-		})
-	}
-	rm.Inline(rows...)
+	origin := fmt.Sprintf("song_list|%d", c.Chat().ID)
+	rm := songListKeyboard(songs, origin)
 	return c.Send(text, rm)
 }
 
@@ -73,7 +66,7 @@ func (b *Bot) handleAllSongsPrivate(c tele.Context) error {
 		for _, s := range chatSongs {
 			text.WriteString(FormatSongLine(&s) + "\n")
 			rows = append(rows, tele.Row{
-				rm.Data(s.Name, "show_song", fmt.Sprintf("%d", s.ID)),
+				rm.Data(s.Name, "show_song", fmt.Sprintf("%d|song_list|0", s.ID)),
 			})
 		}
 	}
@@ -100,14 +93,8 @@ func (b *Bot) handleAllSetlists(c tele.Context) error {
 		return c.Send("Сетлистов пока нет.")
 	}
 
-	rm := &tele.ReplyMarkup{}
-	var rows []tele.Row
-	for _, sl := range setlists {
-		rows = append(rows, tele.Row{
-			rm.Data(sl.Name, "show_sl", fmt.Sprintf("%d", sl.ID)),
-		})
-	}
-	rm.Inline(rows...)
+	origin := fmt.Sprintf("setlist_list|%d", c.Chat().ID)
+	rm := setlistListKeyboard(setlists, origin)
 	return c.Send("📋 Все сетлисты:", rm)
 }
 
@@ -144,7 +131,7 @@ func (b *Bot) handleAllSetlistsPrivate(c tele.Context) error {
 		for _, sl := range chatSetlists {
 			text.WriteString(sl.Name + "\n")
 			rows = append(rows, tele.Row{
-				rm.Data(sl.Name, "show_sl", fmt.Sprintf("%d", sl.ID)),
+				rm.Data(sl.Name, "show_sl", fmt.Sprintf("%d|setlist_list|0", sl.ID)),
 			})
 		}
 	}

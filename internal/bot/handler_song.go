@@ -213,7 +213,7 @@ func (b *Bot) handleSongPrivate(c tele.Context) error {
 			label = fmt.Sprintf("%s (%s)", s.Name, chatName)
 		}
 		rows = append(rows, tele.Row{
-			rm.Data(label, "show_song", fmt.Sprintf("%d", s.ID)),
+			rm.Data(label, "show_song", fmt.Sprintf("%d|song_list|0", s.ID)),
 		})
 	}
 	rm.Inline(rows...)
@@ -236,15 +236,7 @@ func (b *Bot) showRecentSongsPrivate(c tele.Context) error {
 	}
 
 	text := "🎵 Недавние песни:\n\n" + RenderSongList(songs)
-
-	rm := &tele.ReplyMarkup{}
-	var rows []tele.Row
-	for _, s := range songs {
-		rows = append(rows, tele.Row{
-			rm.Data(s.Name, "show_song", fmt.Sprintf("%d", s.ID)),
-		})
-	}
-	rm.Inline(rows...)
+	rm := songListKeyboard(songs, "song_list|0")
 	return c.Send(text, rm)
 }
 
@@ -271,15 +263,8 @@ func (b *Bot) showRecentSongs(c tele.Context) error {
 	}
 
 	text := "🎵 Недавние песни:\n\n" + RenderSongList(songs)
-
-	rm := &tele.ReplyMarkup{}
-	var rows []tele.Row
-	for _, s := range songs {
-		rows = append(rows, tele.Row{
-			rm.Data(s.Name, "show_song", fmt.Sprintf("%d", s.ID)),
-		})
-	}
-	rm.Inline(rows...)
+	origin := fmt.Sprintf("song_list|%d", c.Chat().ID)
+	rm := songListKeyboard(songs, origin)
 	return c.Send(text, rm)
 }
 
@@ -298,9 +283,19 @@ func (b *Bot) sendSongCard(c tele.Context, song *model.Song, changes *ChangeHead
 	return c.Send(text, kb, tele.ModeHTML)
 }
 
+func parseShowSongData(data string) (int, string) {
+	parts := strings.SplitN(data, "|", 2)
+	songID, _ := strconv.Atoi(parts[0])
+	origin := ""
+	if len(parts) > 1 {
+		origin = parts[1]
+	}
+	return songID, origin
+}
+
 func (b *Bot) handleShowSongCallback(c tele.Context) error {
-	songID, err := strconv.Atoi(c.Callback().Data)
-	if err != nil {
+	songID, origin := parseShowSongData(c.Callback().Data)
+	if songID == 0 {
 		return c.Respond(&tele.CallbackResponse{Text: "Некорректный ID"})
 	}
 
@@ -314,18 +309,20 @@ func (b *Bot) handleShowSongCallback(c tele.Context) error {
 	_ = c.Respond()
 
 	if isPrivateChat(c) {
-		return b.sendSongCardReadonly(c, song)
-	}
-
-	if err := b.ensureChat(c); err != nil {
-		return c.Send("Ошибка: " + err.Error())
+		chatName := ""
+		if n, _ := b.store.GetChatName(ctx, song.ChatID); n != nil {
+			chatName = *n
+		}
+		text := RenderSongCardWithChat(song, nil, nil, chatName)
+		isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)
+		kb := SongCardKeyboardReadonly(song, isSubbed, KeyboardOpts{BackOrigin: origin})
+		return c.Edit(text, kb, tele.ModeHTML)
 	}
 
 	text := RenderSongCard(song, nil, nil)
 	isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)
-	kb := SongCardKeyboard(song, isSubbed)
-
-	return c.Send(text, kb, tele.ModeHTML)
+	kb := SongCardKeyboard(song, isSubbed, KeyboardOpts{BackOrigin: origin})
+	return c.Edit(text, kb, tele.ModeHTML)
 }
 
 func buildInitialChanges(song *model.Song) *ChangeHeader {

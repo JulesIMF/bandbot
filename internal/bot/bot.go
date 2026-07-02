@@ -67,6 +67,7 @@ func (b *Bot) registerHandlers() {
 	b.tele.Handle(&tele.InlineButton{Unique: "key"}, b.handleKeySelect)
 	b.tele.Handle(&tele.InlineButton{Unique: "set_key"}, b.handleSetKey)
 	b.tele.Handle(&tele.InlineButton{Unique: "key_back"}, b.handleKeyBack)
+	b.tele.Handle(&tele.InlineButton{Unique: "nav_back"}, b.handleNavBack)
 	b.tele.Handle(&tele.InlineButton{Unique: "tempo"}, b.handleTempoPrompt)
 	b.tele.Handle(&tele.InlineButton{Unique: "rename_song"}, b.handleRenameSongPrompt)
 	b.tele.Handle(&tele.InlineButton{Unique: "responsible"}, b.handleResponsiblePrompt)

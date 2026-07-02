@@ -144,16 +144,27 @@ func RenderSongCardWithChat(song *model.Song, changes *ChangeHeader, ccList []st
 	return b.String()
 }
 
-func SongCardKeyboard(song *model.Song, isSubscribed bool) *tele.ReplyMarkup {
+type KeyboardOpts struct {
+	DeleteRemaining *int
+	BackOrigin      string
+}
+
+func SongCardKeyboard(song *model.Song, isSubscribed bool, opts ...KeyboardOpts) *tele.ReplyMarkup {
 	rm := &tele.ReplyMarkup{}
+	var opt KeyboardOpts
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
+	sid := fmt.Sprintf("%d", song.ID)
 
 	row1 := tele.Row{
-		rm.Data("Тональность", "key", fmt.Sprintf("%d", song.ID)),
-		rm.Data("Темп", "tempo", fmt.Sprintf("%d", song.ID)),
+		rm.Data("Тональность", "key", sid),
+		rm.Data("Темп", "tempo", sid),
 	}
 	row2 := tele.Row{
-		rm.Data("Переименовать", "rename_song", fmt.Sprintf("%d", song.ID)),
-		rm.Data("Ответственный", "responsible", fmt.Sprintf("%d", song.ID)),
+		rm.Data("Переименовать", "rename_song", sid),
+		rm.Data("Ответственный", "responsible", sid),
 	}
 
 	subText := "Подписаться"
@@ -163,37 +174,52 @@ func SongCardKeyboard(song *model.Song, isSubscribed bool) *tele.ReplyMarkup {
 		subAction = "unsub"
 	}
 	row3 := tele.Row{
-		rm.Data(subText, subAction, fmt.Sprintf("%d", song.ID)),
-		rm.Data("История", "history", fmt.Sprintf("%d", song.ID)),
+		rm.Data(subText, subAction, sid),
+		rm.Data("История", "history", sid),
 	}
 
 	rows := []tele.Row{row1, row2, row3}
 
 	if len(song.Notes) > 0 {
 		rows = append(rows, tele.Row{
-			rm.Data("Удалить примечание", "del_note", fmt.Sprintf("%d", song.ID)),
-			rm.Data("Очистить примечания", "clear_notes", fmt.Sprintf("%d", song.ID)),
+			rm.Data("Удалить примечание", "del_note", sid),
+			rm.Data("Очистить примечания", "clear_notes", sid),
 		})
 	}
 
 	if len(song.Pins) > 0 {
 		rows = append(rows, tele.Row{
-			rm.Data("Удалить закреп", "del_pin", fmt.Sprintf("%d", song.ID)),
-			rm.Data("Очистить закрепы", "clear_pins", fmt.Sprintf("%d", song.ID)),
+			rm.Data("Удалить закреп", "del_pin", sid),
+			rm.Data("Очистить закрепы", "clear_pins", sid),
 		})
 	}
 
+	delLabel := "Удалить песню"
+	if opt.DeleteRemaining != nil {
+		delLabel = fmt.Sprintf("Удалить песню (ещё %d)", *opt.DeleteRemaining)
+	}
 	rows = append(rows, tele.Row{
-		rm.Data("Удалить песню", "delete_song", fmt.Sprintf("%d", song.ID)),
+		rm.Data(delLabel, "delete_song", sid),
 	})
+
+	if opt.BackOrigin != "" {
+		rows = append(rows, tele.Row{
+			rm.Data("← Назад", "nav_back", opt.BackOrigin),
+		})
+	}
 
 	rm.Inline(rows...)
 	return rm
 }
 
-func SongCardKeyboardReadonly(song *model.Song, isSubscribed bool) *tele.ReplyMarkup {
+func SongCardKeyboardReadonly(song *model.Song, isSubscribed bool, opts ...KeyboardOpts) *tele.ReplyMarkup {
 	rm := &tele.ReplyMarkup{}
+	var opt KeyboardOpts
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
 
+	sid := fmt.Sprintf("%d", song.ID)
 	subText := "Подписаться"
 	subAction := "sub"
 	if isSubscribed {
@@ -201,15 +227,29 @@ func SongCardKeyboardReadonly(song *model.Song, isSubscribed bool) *tele.ReplyMa
 		subAction = "unsub"
 	}
 
-	rm.Inline(tele.Row{
-		rm.Data(subText, subAction, fmt.Sprintf("%d", song.ID)),
-		rm.Data("История", "history", fmt.Sprintf("%d", song.ID)),
-	})
+	rows := []tele.Row{{
+		rm.Data(subText, subAction, sid),
+		rm.Data("История", "history", sid),
+	}}
+
+	if opt.BackOrigin != "" {
+		rows = append(rows, tele.Row{
+			rm.Data("← Назад", "nav_back", opt.BackOrigin),
+		})
+	}
+
+	rm.Inline(rows...)
 	return rm
 }
 
-func SetlistCardKeyboardReadonly(sl *model.Setlist) *tele.ReplyMarkup {
+func SetlistCardKeyboardReadonly(sl *model.Setlist, opts ...KeyboardOpts) *tele.ReplyMarkup {
 	rm := &tele.ReplyMarkup{}
+	var opt KeyboardOpts
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
+	slOrigin := fmt.Sprintf("setlist|%d", sl.ID)
 	var rows []tele.Row
 	for _, e := range sl.Songs {
 		if e.Song == nil {
@@ -219,10 +259,17 @@ func SetlistCardKeyboardReadonly(sl *model.Setlist) *tele.ReplyMarkup {
 			rm.Data(
 				fmt.Sprintf("%d. %s", e.Position, e.Song.Name),
 				"show_song",
-				fmt.Sprintf("%d", e.Song.ID),
+				fmt.Sprintf("%d|%s", e.Song.ID, slOrigin),
 			),
 		})
 	}
+
+	if opt.BackOrigin != "" {
+		rows = append(rows, tele.Row{
+			rm.Data("← Назад", "nav_back", opt.BackOrigin),
+		})
+	}
+
 	rm.Inline(rows...)
 	return rm
 }
@@ -264,9 +311,14 @@ func RenderSetlistCard(sl *model.Setlist) string {
 	return b.String()
 }
 
-func SetlistCardKeyboard(sl *model.Setlist) *tele.ReplyMarkup {
+func SetlistCardKeyboard(sl *model.Setlist, opts ...KeyboardOpts) *tele.ReplyMarkup {
 	rm := &tele.ReplyMarkup{}
+	var opt KeyboardOpts
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
 
+	slOrigin := fmt.Sprintf("setlist|%d", sl.ID)
 	var songRows []tele.Row
 	for _, e := range sl.Songs {
 		if e.Song == nil {
@@ -276,33 +328,46 @@ func SetlistCardKeyboard(sl *model.Setlist) *tele.ReplyMarkup {
 			rm.Data(
 				fmt.Sprintf("%d. %s", e.Position, e.Song.Name),
 				"show_song",
-				fmt.Sprintf("%d", e.Song.ID),
+				fmt.Sprintf("%d|%s", e.Song.ID, slOrigin),
 			),
 		})
 	}
 
+	slID := fmt.Sprintf("%d", sl.ID)
+	delLabel := "Удалить"
+	if opt.DeleteRemaining != nil {
+		delLabel = fmt.Sprintf("Удалить (ещё %d)", *opt.DeleteRemaining)
+	}
+
 	actionRows := []tele.Row{
 		{
-			rm.Data("Переименовать", "rename_sl", fmt.Sprintf("%d", sl.ID)),
-			rm.Data("Изменить список", "edit_sl", fmt.Sprintf("%d", sl.ID)),
+			rm.Data("Переименовать", "rename_sl", slID),
+			rm.Data("Изменить список", "edit_sl", slID),
 		},
 		{
-			rm.Data("Назначить активным", "active_sl", fmt.Sprintf("%d", sl.ID)),
-			rm.Data("Удалить", "delete_sl", fmt.Sprintf("%d", sl.ID)),
+			rm.Data("Назначить активным", "active_sl", slID),
+			rm.Data(delLabel, "delete_sl", slID),
 		},
 	}
 
 	allRows := append(songRows, actionRows...)
+
+	if opt.BackOrigin != "" {
+		allRows = append(allRows, tele.Row{
+			rm.Data("← Назад", "nav_back", opt.BackOrigin),
+		})
+	}
+
 	rm.Inline(allRows...)
 	return rm
 }
 
-func RenderSongDeleted(song *model.Song) string {
+func RenderSongDeleted(song *model.Song, deletedBy string) string {
 	card := RenderSongCard(song, nil, nil)
-	return card + "\n❌ Песня удалена"
+	return card + fmt.Sprintf("\n❌ Песня удалена (@%s)", deletedBy)
 }
 
-func RenderSetlistDeleted(sl *model.Setlist) string {
+func RenderSetlistDeleted(sl *model.Setlist, deletedBy string) string {
 	card := RenderSetlistCard(sl)
 	return card + "\n❌ Сетлист удалён"
 }

@@ -32,7 +32,7 @@ func (b *Bot) handleKeySelect(c tele.Context) error {
 		})
 	}
 	teleRows = append(teleRows, tele.Row{
-		rm.Data("← Назад", "key_back", fmt.Sprintf("%d", songID)),
+		rm.Data("← Назад", "nav_back", fmt.Sprintf("song|%d", songID)),
 	})
 	rm.Inline(teleRows...)
 
@@ -419,8 +419,13 @@ func (b *Bot) handleHistory(c tele.Context) error {
 	history, _ := b.store.GetHistory(ctx, songID)
 	text := RenderHistory(song, history)
 
+	rm := &tele.ReplyMarkup{}
+	rm.Inline(tele.Row{
+		rm.Data("← Назад", "nav_back", fmt.Sprintf("song|%d", songID)),
+	})
+
 	_ = c.Respond()
-	return c.Send(text)
+	return c.Edit(text, rm, tele.ModeHTML)
 }
 
 func (b *Bot) handleDeleteSong(c tele.Context) error {
@@ -442,7 +447,17 @@ func (b *Bot) handleDeleteSong(c tele.Context) error {
 		return c.Respond(&tele.CallbackResponse{Text: "Недостаточно прав"})
 	}
 
-	text := RenderSongDeleted(song)
+	remaining := pressDelete(c.Chat().ID, c.Message().ID)
+	if remaining > 0 {
+		text := RenderSongCard(song, nil, nil)
+		isSubbed, _ := b.store.IsSubscribed(ctx, song.ID, c.Sender().ID)
+		kb := SongCardKeyboard(song, isSubbed, KeyboardOpts{DeleteRemaining: &remaining})
+		_ = c.Respond()
+		return c.Edit(text, kb, tele.ModeHTML)
+	}
+
+	deleter := senderDisplayName(c)
+	text := RenderSongDeleted(song, deleter)
 	ccList, _ := b.store.GetNotifyList(ctx, song)
 	if len(ccList) > 0 {
 		text += "\n\ncc"
@@ -453,7 +468,7 @@ func (b *Bot) handleDeleteSong(c tele.Context) error {
 
 	_ = b.store.DeleteSong(ctx, songID)
 	_ = c.Respond()
-	return c.Send(text, tele.ModeHTML)
+	return c.Edit(text, tele.ModeHTML)
 }
 
 func (b *Bot) handleDeleteNoteSelect(c tele.Context) error {
@@ -483,7 +498,7 @@ func (b *Bot) handleDeleteNoteSelect(c tele.Context) error {
 		})
 	}
 	rows = append(rows, tele.Row{
-		rm.Data("← Назад", "key_back", fmt.Sprintf("%d", songID)),
+		rm.Data("← Назад", "nav_back", fmt.Sprintf("song|%d", songID)),
 	})
 	rm.Inline(rows...)
 
@@ -583,7 +598,7 @@ func (b *Bot) handleDeletePinSelect(c tele.Context) error {
 		})
 	}
 	rows = append(rows, tele.Row{
-		rm.Data("← Назад", "key_back", fmt.Sprintf("%d", songID)),
+		rm.Data("← Назад", "nav_back", fmt.Sprintf("song|%d", songID)),
 	})
 	rm.Inline(rows...)
 

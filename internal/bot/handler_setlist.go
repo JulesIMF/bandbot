@@ -513,7 +513,16 @@ func (b *Bot) handleDeleteSetlist(c tele.Context) error {
 		return c.Respond(&tele.CallbackResponse{Text: "Недостаточно прав"})
 	}
 
-	text := RenderSetlistDeleted(sl)
+	remaining := pressDelete(c.Chat().ID, c.Message().ID)
+	if remaining > 0 {
+		text := RenderSetlistCard(sl)
+		kb := SetlistCardKeyboard(sl, KeyboardOpts{DeleteRemaining: &remaining})
+		_ = c.Respond()
+		return c.Edit(text, kb, tele.ModeHTML)
+	}
+
+	deleter := senderDisplayName(c)
+	text := RenderSetlistDeleted(sl, deleter)
 	ccList, _ := b.store.GetSubscribeAllUsers(ctx, sl.ChatID)
 	if cc := FormatCCLine(ccList); cc != "" {
 		text += "\n\n" + cc
@@ -522,12 +531,22 @@ func (b *Bot) handleDeleteSetlist(c tele.Context) error {
 	_ = b.store.DeleteSetlist(ctx, slID)
 
 	_ = c.Respond()
-	return c.Send(text, tele.ModeHTML)
+	return c.Edit(text, tele.ModeHTML)
+}
+
+func parseShowSetlistData(data string) (int, string) {
+	parts := strings.SplitN(data, "|", 2)
+	slID, _ := strconv.Atoi(parts[0])
+	origin := ""
+	if len(parts) > 1 {
+		origin = parts[1]
+	}
+	return slID, origin
 }
 
 func (b *Bot) handleShowSetlistCallback(c tele.Context) error {
-	slID, err := strconv.Atoi(c.Callback().Data)
-	if err != nil {
+	slID, origin := parseShowSetlistData(c.Callback().Data)
+	if slID == 0 {
 		return c.Respond(&tele.CallbackResponse{Text: "Ошибка"})
 	}
 
@@ -539,9 +558,26 @@ func (b *Bot) handleShowSetlistCallback(c tele.Context) error {
 
 	_ = c.Respond()
 	if isPrivateChat(c) {
-		return b.sendSetlistCardReadonly(c, sl)
+		chatName := ""
+		if n, _ := b.store.GetChatName(ctx, sl.ChatID); n != nil {
+			chatName = *n
+		}
+		text := RenderSetlistCard(sl)
+		if chatName != "" {
+			if isSupergroup(sl.ChatID) {
+				link := chatDeepLink(sl.ChatID)
+				text = fmt.Sprintf("📋 %s 🔗 <a href=\"%s\">%s</a>\n\n", sl.Name, link, escapeHTML(chatName)) + text[len(fmt.Sprintf("📋 %s\n\n", sl.Name)):]
+			} else {
+				text = fmt.Sprintf("📋 %s · %s\n\n", sl.Name, escapeHTML(chatName)) + text[len(fmt.Sprintf("📋 %s\n\n", sl.Name)):]
+			}
+		}
+		kb := SetlistCardKeyboardReadonly(sl, KeyboardOpts{BackOrigin: origin})
+		return c.Edit(text, kb, tele.ModeHTML)
 	}
-	return b.sendSetlistCard(c, sl)
+
+	text := RenderSetlistCard(sl)
+	kb := SetlistCardKeyboard(sl, KeyboardOpts{BackOrigin: origin})
+	return c.Edit(text, kb, tele.ModeHTML)
 }
 
 func (b *Bot) processRenameSetlistReply(c tele.Context, slID int) error {
