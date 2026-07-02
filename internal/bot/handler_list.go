@@ -71,6 +71,7 @@ func (b *Bot) handleAllSongsPrivate(c tele.Context) error {
 		}
 	}
 
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 	return c.Send(text.String(), rm, tele.ModeHTML)
 }
@@ -136,6 +137,7 @@ func (b *Bot) handleAllSetlistsPrivate(c tele.Context) error {
 		}
 	}
 
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 	return c.Send(text.String(), rm, tele.ModeHTML)
 }

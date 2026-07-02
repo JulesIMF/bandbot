@@ -216,6 +216,7 @@ func (b *Bot) handleSongPrivate(c tele.Context) error {
 			rm.Data(label, "show_song", fmt.Sprintf("%d|song_list|0", s.ID)),
 		})
 	}
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 	return c.Send(fmt.Sprintf("Песня «%s» найдена в нескольких группах. Выберите:", name), rm)
 }

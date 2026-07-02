@@ -149,6 +149,10 @@ type KeyboardOpts struct {
 	BackOrigin      string
 }
 
+func appendHideRow(rm *tele.ReplyMarkup, rows []tele.Row) []tele.Row {
+	return append(rows, tele.Row{rm.Data("Скрыть", "hide_msg", "1")})
+}
+
 func SongCardKeyboard(song *model.Song, isSubscribed bool, opts ...KeyboardOpts) *tele.ReplyMarkup {
 	rm := &tele.ReplyMarkup{}
 	var opt KeyboardOpts
@@ -208,6 +212,7 @@ func SongCardKeyboard(song *model.Song, isSubscribed bool, opts ...KeyboardOpts)
 		})
 	}
 
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 	return rm
 }
@@ -238,6 +243,7 @@ func SongCardKeyboardReadonly(song *model.Song, isSubscribed bool, opts ...Keybo
 		})
 	}
 
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 	return rm
 }
@@ -270,6 +276,7 @@ func SetlistCardKeyboardReadonly(sl *model.Setlist, opts ...KeyboardOpts) *tele.
 		})
 	}
 
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 	return rm
 }
@@ -358,6 +365,7 @@ func SetlistCardKeyboard(sl *model.Setlist, opts ...KeyboardOpts) *tele.ReplyMar
 		})
 	}
 
+	allRows = appendHideRow(rm, allRows)
 	rm.Inline(allRows...)
 	return rm
 }

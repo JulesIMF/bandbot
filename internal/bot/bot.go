@@ -89,8 +89,14 @@ func (b *Bot) registerHandlers() {
 	b.tele.Handle(&tele.InlineButton{Unique: "delete_sl"}, b.handleDeleteSetlist)
 	b.tele.Handle(&tele.InlineButton{Unique: "sl_pick"}, b.handleSetlistPick)
 	b.tele.Handle(&tele.InlineButton{Unique: "show_sl"}, b.handleShowSetlistCallback)
+	b.tele.Handle(&tele.InlineButton{Unique: "hide_msg"}, b.handleHideMessage)
 
 	b.tele.Handle(tele.OnText, b.handleText)
+}
+
+func (b *Bot) handleHideMessage(c tele.Context) error {
+	_ = c.Respond()
+	return c.Delete()
 }
 
 func (b *Bot) ensureChat(c tele.Context) error {

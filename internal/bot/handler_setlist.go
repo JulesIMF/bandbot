@@ -128,6 +128,7 @@ func (b *Bot) handleSetlistPrivate(c tele.Context) error {
 			rm.Data(label, "show_sl", fmt.Sprintf("%d", sl.ID)),
 		})
 	}
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 	return c.Send(fmt.Sprintf("Сетлист «%s» найден в нескольких группах. Выберите:", name), rm)
 }
@@ -283,6 +284,7 @@ func (b *Bot) startDisambiguation(c tele.Context, name string, resolutions []son
 			rm.Data(cand.Name, "sl_pick", fmt.Sprintf("%d|%s", idx, cand.Name)),
 		})
 	}
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 
 	msg, err := b.tele.Send(c.Chat(),
@@ -334,6 +336,7 @@ func (b *Bot) handleSetlistPick(c tele.Context) error {
 				rm.Data(cand.Name, "sl_pick", fmt.Sprintf("%d|%s", nextIdx, cand.Name)),
 			})
 		}
+		rows = appendHideRow(rm, rows)
 		rm.Inline(rows...)
 
 		_ = c.Respond()
@@ -717,6 +720,7 @@ func (b *Bot) startDisambiguationForUpdate(c tele.Context, slID int, resolutions
 			rm.Data(cand.Name, "sl_pick", fmt.Sprintf("%d|%s", idx, cand.Name)),
 		})
 	}
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 
 	msg, err := b.tele.Send(c.Chat(),

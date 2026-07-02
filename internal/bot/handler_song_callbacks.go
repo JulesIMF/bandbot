@@ -34,6 +34,7 @@ func (b *Bot) handleKeySelect(c tele.Context) error {
 	teleRows = append(teleRows, tele.Row{
 		rm.Data("← Назад", "nav_back", fmt.Sprintf("song|%d", songID)),
 	})
+	teleRows = appendHideRow(rm, teleRows)
 	rm.Inline(teleRows...)
 
 	_ = c.Respond()
@@ -420,9 +421,10 @@ func (b *Bot) handleHistory(c tele.Context) error {
 	text := RenderHistory(song, history)
 
 	rm := &tele.ReplyMarkup{}
-	rm.Inline(tele.Row{
+	rows := appendHideRow(rm, []tele.Row{{
 		rm.Data("← Назад", "nav_back", fmt.Sprintf("song|%d", songID)),
-	})
+	}})
+	rm.Inline(rows...)
 
 	_ = c.Respond()
 	return c.Edit(text, rm, tele.ModeHTML)
@@ -502,6 +504,7 @@ func (b *Bot) handleDeleteNoteSelect(c tele.Context) error {
 	rows = append(rows, tele.Row{
 		rm.Data("← Назад", "nav_back", fmt.Sprintf("song|%d", songID)),
 	})
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 
 	_ = c.Respond()
@@ -602,6 +605,7 @@ func (b *Bot) handleDeletePinSelect(c tele.Context) error {
 	rows = append(rows, tele.Row{
 		rm.Data("← Назад", "nav_back", fmt.Sprintf("song|%d", songID)),
 	})
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 
 	_ = c.Respond()

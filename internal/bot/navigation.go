@@ -197,6 +197,7 @@ func songListKeyboard(songs []model.Song, listOrigin string) *tele.ReplyMarkup {
 			rm.Data(s.Name, "show_song", fmt.Sprintf("%d|%s", s.ID, listOrigin)),
 		})
 	}
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 	return rm
 }
@@ -209,6 +210,7 @@ func setlistListKeyboard(setlists []model.Setlist, listOrigin string) *tele.Repl
 			rm.Data(sl.Name, "show_sl", fmt.Sprintf("%d|%s", sl.ID, listOrigin)),
 		})
 	}
+	rows = appendHideRow(rm, rows)
 	rm.Inline(rows...)
 	return rm
 }
